@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Homeoffice App</title>
+
+<link rel="manifest" href="manifest.json">
+
+<style>
+body { font-family: Arial; margin:0; padding:15px; background:#f4f6f8; }
+.container { max-width:500px; margin:auto; }
+.day { display:flex; justify-content:space-between; margin:5px 0; background:white; padding:8px; border-radius:8px;}
+.summary { margin-top:15px; padding:10px; background:white; border-radius:10px; text-align:center;}
+.bar { height:10px; background:green; width:0%; }
+.progress { background:#ccc; border-radius:5px; overflow:hidden; }
+</style>
+</head>
+
+<body>
+<div class="container">
+<h2>🏠 Homeoffice</h2>
+<input type="month" id="month">
+<button onclick="exportCSV()">Export</button>
+
+<div id="days"></div>
+
+<div class="summary">
+<p>Gesamt: <span id="total">0</span></p>
+<p>HO: <span id="home">0</span></p>
+<p><span id="percent">0%</span></p>
+<div class="progress"><div class="bar" id="bar"></div></div>
+</div>
+</div>
+
+<script>
+const daysContainer = document.getElementById("days");
+const monthInput = document.getElementById("month");
+
+monthInput.value = new Date().toISOString().slice(0,7);
+
+function getDaysInMonth(y,m){ return new Date(y,m,0).getDate(); }
+
+function load(){
+daysContainer.innerHTML="";
+let [y,m]=monthInput.value.split("-");
+let d=getDaysInMonth(y,m);
+
+for(let i=1;i<=d;i++){
+let key=monthInput.value+"-"+i;
+let data=JSON.parse(localStorage.getItem(key))||{h:"",ho:false};
+
+let div=document.createElement("div");
+div.className="day";
+div.innerHTML=`
+<span>${i}</span>
+<input type="number" value="${data.h}" onchange="save(${i},this.value,this.nextElementSibling.checked)">
+<input type="checkbox" ${data.ho?"checked":""} onchange="save(${i},this.previousElementSibling.value,this.checked)">
+`;
+daysContainer.appendChild(div);
+}
+calc();
+}
+
+function save(d,h,ho){
+localStorage.setItem(monthInput.value+"-"+d,JSON.stringify({h,ho}));
+calc();
+}
+
+function calc(){
+let total=0,home=0;
+document.querySelectorAll(".day").forEach(d=>{
+let h=parseFloat(d.children[1].value)||0;
+let ho=d.children[2].checked;
+total+=h; if(ho) home+=h;
+});
+let p=total?(home/total*100):0;
+document.getElementById("total").innerText=total.toFixed(1);
+document.getElementById("home").innerText=home.toFixed(1);
+document.getElementById("percent").innerText=p.toFixed(1)+"%";
+document.getElementById("bar").style.width=p+"%";
+}
+
+function exportCSV(){
+let rows=[["Tag","Stunden","HO"]];
+document.querySelectorAll(".day").forEach((d,i)=>{
+let h=d.children[1].value||0;
+let ho=d.children[2].checked?"Ja":"Nein";
+rows.push([i+1,h,ho]);
+});
+let csv=rows.map(r=>r.join(";")).join("\n");
+let blob=new Blob([csv],{type:"text/csv"});
+let a=document.createElement("a");
+a.href=URL.createObjectURL(blob);
+a.download="homeoffice.csv";
+a.click();
+}
+
+monthInput.onchange=load;
+load();
+</script>
+
+</body>
+</html>
